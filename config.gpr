@@ -1,0 +1,24 @@
+project Config is
+
+   for Languages use ("Ada", "C");
+   for Main use ("main.adb");
+
+   package Compiler is
+      for Default_Switches ("Ada") use ("-gnatwa", "-Ofast", "-gnat12", "-march=native", "-m64", "-funroll-loops");
+      for Default_Switches ("C") use ("-Wall", "-Ofast", "-march=native", "-m64", "-funroll-loops", "-Werror", "-Wextra", "-std=gnu11");
+   end Compiler;
+
+   package Binder is
+      for Switches ("Ada") use ("-shared");
+   end Binder;
+
+   package Builder is
+      for Default_Switches ("Ada") use ("-s", "-j4", "-k");
+   end Builder;
+
+   package Linker is
+      for Default_Switches ("Ada") use ("-Wl,--gc-sections", "-lfreeimage");
+   end Linker;
+
+end Config;
+
