@@ -5,10 +5,10 @@ with Ada.Unchecked_Conversion;
 
 procedure Main is
 	pragma Suppress(All_Checks);
-	
+
 	Matrix_Size : constant := 3200;
 	type Matrix_Range is range 0 .. Matrix_Size - 1;
-	Bound_High, Bound_Low : Matrix_Range; 
+	Bound_High, Bound_Low : Matrix_Range;
 
 	type Pile is range 0..7 with Size=>8;
 	type Pile_Pointer is access all Pile;
@@ -99,24 +99,23 @@ procedure Main is
 							Bound_Low := Bound_Low - 1;
 							Bound_High := Bound_High + 1;
 						end if;
+						Temp := ia32_Load(Temp_Values(0)'Access);
+
+						Upper_Sum_m128i_Buffer := ia32_Load(Sum(I-1)(J)'Access);
+						ia32_Store(Sum(I-1)(J)'Access, ia32_Add(Upper_Sum_m128i_Buffer, Temp));
+
+						Lower_Sum_m128i_Buffer := ia32_Load(Sum(I+1)(J)'Access);
+						ia32_Store(Sum(I+1)(J)'Access, ia32_Add(Lower_Sum_m128i_Buffer, Temp));
+
+						Sum_m128i_Buffer := ia32_Load(Sum(I)(J-1)'Access);
+						ia32_Store(Sum(I)(J-1)'Access, ia32_Add(Sum_m128i_Buffer, Temp));
+
+						Sum_m128i_Buffer := ia32_Load(Sum(I)(J+1)'Access);
+						ia32_Store(Sum(I)(J+1)'Access, ia32_Add(Sum_m128i_Buffer, Temp));
+
+						Base(I)(J..J+7) := Move(Move(Base(I)(J..J+7)) - (Temp_Values(0) * 4));
+						Base(I)(J+8..J+15) := Move(Move(Base(I)(J+8..J+15)) - (Temp_Values(1) * 4));
 					end if;
-
-					Temp := ia32_Load(Temp_Values(0)'Access);
-
-					Upper_Sum_m128i_Buffer := ia32_Load(Sum(I-1)(J)'Access);
-					ia32_Store(Sum(I-1)(J)'Access, ia32_Add(Upper_Sum_m128i_Buffer, Temp));
-
-					Lower_Sum_m128i_Buffer := ia32_Load(Sum(I+1)(J)'Access);
-					ia32_Store(Sum(I+1)(J)'Access, ia32_Add(Lower_Sum_m128i_Buffer, Temp));
-
-					Sum_m128i_Buffer := ia32_Load(Sum(I)(J-1)'Access);
-					ia32_Store(Sum(I)(J-1)'Access, ia32_Add(Sum_m128i_Buffer, Temp));
-
-					Sum_m128i_Buffer := ia32_Load(Sum(I)(J+1)'Access);
-					ia32_Store(Sum(I)(J+1)'Access, ia32_Add(Sum_m128i_Buffer, Temp));
-
-					Base(I)(J..J+7) := Move(Move(Base(I)(J..J+7)) - (Temp_Values(0) * 4));						
-					Base(I)(J+8..J+15) := Move(Move(Base(I)(J+8..J+15)) - (Temp_Values(1) * 4));
 
 					J := J + 16;
 				end loop;
