@@ -15,7 +15,6 @@ procedure Main is
 
 	type Generic_Matrix_Row is array (Matrix_Range range <>) of aliased Pile with Pack;
 	subtype Matrix_Row is Generic_Matrix_Row(Matrix_Range);
-	subtype Matrix_Big_Sub_Row is Generic_Matrix_Row(0..15);
 	subtype Matrix_Sub_Row is Generic_Matrix_Row(0..7);
 	type Matrix is array (Matrix_Range) of Matrix_Row with Pack;
 	type Matrix_Pointer is access all Matrix;
@@ -45,26 +44,7 @@ procedure Main is
 		Put_Line("------------");
 	end;
 
-	procedure Sum (Base : in Matrix_Pointer; Item : in Matrix_Pointer) is
-	begin
-		for I in Bound_Low .. Bound_High loop
-			declare
-				J : Matrix_Range := Bound_Low - (Bound_Low mod 16);
-				Base_m128i_Buffer : m128i;
-				Sum_m128i_Buffer : m128i;
-			begin
-				while J <= Bound_High loop
-					Base_m128i_Buffer := ia32_Load(Base(I)(J)'Access);
-					Sum_m128i_Buffer := ia32_Load(Item(I)(J)'Access);
-					Base_m128i_Buffer := ia32_Add(Base_m128i_Buffer, Sum_m128i_Buffer);
-					ia32_Store(Base(I)(J)'Access, Base_m128i_Buffer);
-					J := J + 16;
-				end loop;
-			end;
-		end loop;
-	end Sum;
-
-	function Topple (Base : in Matrix_Pointer; Sum : in Matrix_Pointer) return Boolean is
+	function Topple (Base : in Matrix_Pointer) return Boolean is
 		type Mod_64 is mod 2**64;
 		type Mod_64_Array is array (0..1) of aliased Mod_64;
 		type Mod_64_Pointer is access all Mod_64;
@@ -84,7 +64,6 @@ procedure Main is
 			declare
 				J : Matrix_Range := Local_Bound_Low - (Local_Bound_Low mod 16);
 				Temp : m128i;
-				Base_m128i_Buffer : m128i;
 				Sum_m128i_Buffer : m128i;
 				Upper_Sum_m128i_Buffer : m128i;
 				Lower_Sum_m128i_Buffer : m128i;
@@ -101,17 +80,17 @@ procedure Main is
 						end if;
 						Temp := ia32_Load(Temp_Values(0)'Access);
 
-						Upper_Sum_m128i_Buffer := ia32_Load(Sum(I-1)(J)'Access);
-						ia32_Store(Sum(I-1)(J)'Access, ia32_Add(Upper_Sum_m128i_Buffer, Temp));
+						Upper_Sum_m128i_Buffer := ia32_Load(Base(I-1)(J)'Access);
+						ia32_Store(Base(I-1)(J)'Access, ia32_Add(Upper_Sum_m128i_Buffer, Temp));
 
-						Lower_Sum_m128i_Buffer := ia32_Load(Sum(I+1)(J)'Access);
-						ia32_Store(Sum(I+1)(J)'Access, ia32_Add(Lower_Sum_m128i_Buffer, Temp));
+						Lower_Sum_m128i_Buffer := ia32_Load(Base(I+1)(J)'Access);
+						ia32_Store(Base(I+1)(J)'Access, ia32_Add(Lower_Sum_m128i_Buffer, Temp));
 
-						Sum_m128i_Buffer := ia32_Load(Sum(I)(J-1)'Access);
-						ia32_Store(Sum(I)(J-1)'Access, ia32_Add(Sum_m128i_Buffer, Temp));
+						Sum_m128i_Buffer := ia32_Load(Base(I)(J-1)'Access);
+						ia32_Store(Base(I)(J-1)'Access, ia32_Add(Sum_m128i_Buffer, Temp));
 
-						Sum_m128i_Buffer := ia32_Load(Sum(I)(J+1)'Access);
-						ia32_Store(Sum(I)(J+1)'Access, ia32_Add(Sum_m128i_Buffer, Temp));
+						Sum_m128i_Buffer := ia32_Load(Base(I)(J+1)'Access);
+						ia32_Store(Base(I)(J+1)'Access, ia32_Add(Sum_m128i_Buffer, Temp));
 
 						Base(I)(J..J+7) := Move(Move(Base(I)(J..J+7)) - (Temp_Values(0) * 4));
 						Base(I)(J+8..J+15) := Move(Move(Base(I)(J+8..J+15)) - (Temp_Values(1) * 4));
@@ -136,13 +115,11 @@ procedure Main is
 	end Drip;
 
 	procedure Color (Item : in Matrix) with Import, Convention=>C, Link_Name=>"color_map";
-	procedure Memset (Item : in Pile_Pointer; Value : in Pile; Count : in Natural) with Import, Convention=>C, Link_Name=>"memset";
 
 ----------------------------------------------------------------------
 
 
 	Base_Matrix : constant Matrix_Pointer := new Matrix'(others=>(others=>0));
-	Sum_Matrix : constant Matrix_Pointer := new Matrix'(others=>(others=>0));
 
 	Input_Sand_Stream : Natural := Natural'Value(Argument(1));
 
@@ -172,17 +149,12 @@ begin
 		Start_Time :constant Ada.Real_Time.Time := Ada.Real_Time.Clock;
 		End_Time : Ada.Real_Time.Time;
 	begin
-		while Topple(Base_Matrix, Sum_Matrix) loop
+		while Topple(Base_Matrix) loop
 			if Input_Sand_Stream mod 2048 = 0 then
 				Put_Line(Natural'Image(Input_Sand_Stream));
 				Put_Line(Matrix_Range'Image(Bound_High));
 				Put_Line(Matrix_Range'Image(Bound_Low));
 			end if;
-			Sum(Base_Matrix, Sum_Matrix);
-
-			for I in Bound_Low .. Bound_High loop
-				Memset(Sum_Matrix(I)(Bound_Low)'Access, 0, Natural(Bound_High - Bound_Low + 1));
-			end loop;
 
 			if Base_Matrix(Center)(Center) < 4 then
 				Base_Matrix(Center)(Center) := Base_Matrix(Center)(Center) + Drip(Input_Sand_Stream);
